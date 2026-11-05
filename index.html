@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Hanzi Cards</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#a8221a">
+<style>
+:root{--bg:#e9eee9;--surf:#f7f9f6;--ink:#1b2421;--mute:#5d6a64;--line:#c9d3cc;--seal:#a8221a;--on:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a17;--surf:#1d2622;--ink:#e8eee9;--mute:#97a69d;--line:#33403a;--seal:#e5574d}}
+:root[data-theme="dark"]{--bg:#141a17;--surf:#1d2622;--ink:#e8eee9;--mute:#97a69d;--line:#33403a;--seal:#e5574d}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Source Serif 4",Georgia,serif;font-size:17px}
+main{max-width:520px;margin:0 auto;padding:16px}
+nav{display:flex;gap:8px;margin-bottom:16px}
+nav button{flex:1;padding:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;border-radius:8px}
+nav button[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button{font:inherit;color:var(--ink);cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.opts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.opts label{flex:1;min-width:100px;display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surf)}
+.opts input{width:20px;height:20px;accent-color:var(--seal)}
+.card{width:100%;min-height:340px;background:var(--surf);border:1px solid var(--line);border-top:4px solid var(--seal);border-radius:4px 4px 12px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+.han{font-family:"Noto Serif SC","Songti SC","STSong",serif;font-weight:700;font-size:72px;line-height:1.1;word-break:break-all}
+.py{font-size:30px;color:var(--seal)}
+.en{font-size:26px}
+.hint{color:var(--mute);font-size:15px}
+.ctl{display:flex;gap:8px;margin-top:12px}
+.ctl button{flex:1;padding:14px;border-radius:8px;border:1px solid var(--line);background:var(--surf)}
+.ctl .main{background:var(--seal);border-color:var(--seal);color:var(--on)}
+.count{text-align:center;color:var(--mute);margin:10px 0}
+#bW{color:var(--seal);border-color:var(--seal)}#bR{background:var(--seal);color:var(--on);border-color:var(--seal)}#bE{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+form{display:grid;gap:8px;margin-bottom:16px}
+input[type=text]{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surf);color:var(--ink);font:inherit}
+.row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.row .t{flex:1;min-width:0}.row b{font-family:"Noto Serif SC",serif;font-size:22px}
+.row button{border:1px solid var(--line);background:transparent;border-radius:6px;padding:8px 10px}
+.sm{display:flex;gap:8px;margin-top:16px}.sm button{flex:1;padding:10px;border:1px solid var(--line);background:transparent;border-radius:8px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+<nav role="tablist"><button id="tS" role="tab" aria-selected="true">Study</button><button id="tM" role="tab" aria-selected="false">Cards</button></nav>
+
+<section id="study">
+  <div class="opts" role="group" aria-label="Show on front">
+    <label><input type="checkbox" id="oH" checked> Character</label>
+    <label><input type="checkbox" id="oP" checked> Pinyin</label>
+    <label><input type="checkbox" id="oE"> English</label>
+  </div>
+  <div class="opts"><label><input type="checkbox" id="oR"> Shuffle order</label></div>
+  <button class="card" id="card" aria-live="polite"></button>
+  <div class="count" id="count"></div>
+  <div class="ctl" id="ctlA"><button class="main" id="flip">Show answer</button></div>
+  <div class="ctl hide" id="ctlB"><button id="bW">Wrong</button><button id="bR">Right</button><button id="bE">Easy</button></div>
+  <div class="sm"><button id="all">Review all cards now</button></div>
+</section>
+
+<section id="manage" class="hide">
+  <form id="f">
+    <input type="text" id="aH" placeholder="Character" lang="zh" autocomplete="off">
+    <input type="text" id="aP" placeholder="Pinyin" autocomplete="off">
+    <input type="text" id="aE" placeholder="English" autocomplete="off">
+    <div class="ctl"><button class="main" type="button" id="save">Add card</button><button type="button" id="cancel" class="hide">Cancel edit</button></div>
+  </form>
+  <div id="list"></div>
+  <div class="sm"><button id="exp">Copy backup</button><button id="imp">Restore from backup</button></div>
+  <input type="text" id="bk" class="hide" placeholder="Paste backup text here, then tap Restore again" style="margin-top:8px">
+</section>
+</main>
+<script>
+(function(){
+var K="hanzi-cards-v1",cards=[],opts={h:true,p:true,e:false,r:false},idx=0,flipped=false,order=[],editId=null;
+function load(){try{var d=JSON.parse(localStorage.getItem(K)||"null");if(d){cards=d.cards||[];opts=Object.assign(opts,d.opts||{})}}catch(e){}}
+function persist(){try{localStorage.setItem(K,JSON.stringify({cards:cards,opts:opts}))}catch(e){}}
+var $=function(i){return document.getElementById(i)};
+function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}
+function buildOrder(all){var n=Date.now();order=cards.map(function(_,i){return i}).filter(function(i){return all||(cards[i].due||0)<=n});order.sort(function(a,b){return (cards[a].due||0)-(cards[b].due||0)});if(opts.r){for(var i=order.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=order[i];order[i]=order[j];order[j]=t}}idx=0}
+function sched(c,q){var ease=c.ease||2.5,reps=c.reps||0,ivl=c.ivl||0,ni,ne=ease;
+  if(q===0){ni=0;ne=Math.max(1.3,ease-0.2)}
+  else if(q===1){ni=reps===0?1:reps===1?3:Math.max(ivl+1,Math.round(ivl*ease))}
+  else{ni=reps===0?4:reps===1?7:Math.max(ivl+2,Math.round(ivl*ease*1.4));ne=ease+0.15}
+  return{ivl:ni,ease:ne,reps:q===0?0:reps+1}}
+function lbl(i){return i===0?"10 min":i<30?i+" d":Math.round(i/30)+" mo"}
+function when(t){var m=Math.max(1,Math.round((t-Date.now())/6e4));return m<60?"in "+m+" min":m<2880?"in "+Math.round(m/60)+" h":"in "+Math.round(m/1440)+" days"}
+function part(c,k,cls){return c[k]?'<div class="'+cls+'"'+(k==="h"?' lang="zh"':'')+'>'+esc(c[k])+'</div>':''}
+function render(){
+  $("oH").checked=opts.h;$("oP").checked=opts.p;$("oE").checked=opts.e;$("oR").checked=opts.r;
+  var card=$("card");
+  if(!cards.length){card.innerHTML='<div class="en">No cards yet</div><div class="hint">Open the Cards tab to add your first one.</div>';$("count").textContent="";return}
+  if(!order.length){var nd=cards.map(function(x){return x.due||0}).filter(function(d){return d>Date.now()}).sort(function(a,b){return a-b})[0];card.innerHTML='<div class="en">All caught up</div><div class="hint">'+(nd?"The next card is due "+when(nd)+".":"")+'</div>';$("count").textContent="";$("ctlA").classList.add("hide");$("ctlB").classList.add("hide");return}
+  var c=cards[order[0]];
+  var front=opts.h||opts.p||opts.e;
+  var show=function(k){return flipped||!front?true:opts[k]};
+  if(!front&&!flipped){card.innerHTML='<div class="hint">Select at least one field to show on the front.</div>'}
+  else{card.innerHTML=(show("h")?part(c,"h","han"):"")+(show("p")?part(c,"p","py"):"")+(show("e")?part(c,"e","en"):"")+(flipped?"":'<div class="hint">Tap to reveal the rest</div>')}
+  $("count").textContent=order.length+" to review";
+  $("ctlA").classList.toggle("hide",flipped);$("ctlB").classList.toggle("hide",!flipped);
+  if(flipped){$("bW").textContent="Wrong · "+lbl(sched(c,0).ivl);$("bR").textContent="Right · "+lbl(sched(c,1).ivl);$("bE").textContent="Easy · "+lbl(sched(c,2).ivl)}
+}
+function rate(q){if(!order.length)return;var i=order.shift(),c=cards[i],s=sched(c,q);c.ivl=s.ivl;c.ease=s.ease;c.reps=s.reps;c.due=Date.now()+(s.ivl?s.ivl*864e5:6e5);if(q===0)order.push(i);persist();flipped=false;render()}
+function list(){
+  var h="";cards.forEach(function(c){h+='<div class="row"><div class="t"><b lang="zh">'+esc(c.h)+'</b> <span class="hint">'+esc(c.p)+'</span><div>'+esc(c.e)+'</div></div><button data-e="'+c.id+'" aria-label="Edit">Edit</button><button data-d="'+c.id+'" aria-label="Delete">Delete</button></div>'});
+  $("list").innerHTML=h||'<div class="hint">Your cards will appear here.</div>';
+}
+function tab(m){$("study").classList.toggle("hide",m);$("manage").classList.toggle("hide",!m);$("tS").setAttribute("aria-selected",!m);$("tM").setAttribute("aria-selected",m);if(!m){buildOrder();flipped=false;render()}else list()}
+$("tS").onclick=function(){tab(false)};$("tM").onclick=function(){tab(true)};
+$("card").onclick=function(){if(cards.length){flipped=!flipped;render()}};
+$("flip").onclick=$("card").onclick;$("bW").onclick=function(){rate(0)};$("bR").onclick=function(){rate(1)};$("bE").onclick=function(){rate(2)};$("all").onclick=function(){buildOrder(true);flipped=false;render()};
+[["oH","h"],["oP","p"],["oE","e"],["oR","r"]].forEach(function(p){$(p[0]).onchange=function(){opts[p[1]]=this.checked;persist();if(p[1]==="r"){idx=0;buildOrder()}flipped=false;render()}});
+function clearForm(){$("aH").value=$("aP").value=$("aE").value="";editId=null;$("save").textContent="Add card";$("cancel").classList.add("hide")}
+$("save").onclick=function(){
+  var h=$("aH").value.trim(),p=$("aP").value.trim(),e=$("aE").value.trim();
+  if(!h&&!p&&!e)return;
+  if(editId){cards.forEach(function(c){if(c.id===editId){c.h=h;c.p=p;c.e=e}})}
+  else cards.push({id:String(Date.now())+Math.random().toString(36).slice(2,5),h:h,p:p,e:e});
+  persist();clearForm();list();$("aH").focus()};
+$("cancel").onclick=clearForm;
+$("list").onclick=function(ev){
+  var d=ev.target.getAttribute("data-d"),e=ev.target.getAttribute("data-e");
+  if(d){cards=cards.filter(function(c){return c.id!==d});persist();list()}
+  if(e){var c=cards.filter(function(x){return x.id===e})[0];$("aH").value=c.h;$("aP").value=c.p;$("aE").value=c.e;editId=e;$("save").textContent="Save changes";$("cancel").classList.remove("hide");window.scrollTo(0,0)}};
+$("exp").onclick=function(){var t=JSON.stringify(cards);var bk=$("bk");bk.classList.remove("hide");bk.value=t;bk.select();try{navigator.clipboard.writeText(t)}catch(e){}};
+$("imp").onclick=function(){var bk=$("bk");if(bk.classList.contains("hide")){bk.classList.remove("hide");bk.value="";bk.focus();return}
+  try{var a=JSON.parse(bk.value);if(Array.isArray(a)){cards=a.filter(function(c){return c&&(c.h||c.p||c.e)}).map(function(c){return{id:c.id||String(Math.random()),h:c.h||"",p:c.p||"",e:c.e||"",due:c.due||0,ivl:c.ivl||0,ease:c.ease||2.5,reps:c.reps||0}});persist();list();bk.value="";bk.classList.add("hide")}}catch(e){bk.value="";bk.placeholder="That backup text could not be read."}};
+load();buildOrder();render();
+})();
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
+</script>
+</body>
+</html>
